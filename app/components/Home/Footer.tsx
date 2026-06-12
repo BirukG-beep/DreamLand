@@ -183,8 +183,8 @@ export default function Footer() {
     e.currentTarget.style.textDecoration = 'none';
     e.currentTarget.style.opacity = '1';
   }}
->
-  Nathnael Getachew
+> Developed By
+  <span className="text-orange-500">Nathnael Getachew</span>
 </a>
             </p>
 
