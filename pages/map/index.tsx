@@ -15,7 +15,7 @@ const DynamicMapContent = dynamic(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#a8895f',
+          color: '#c8a96e',
           fontFamily: 'serif',
           fontSize: '1.4rem',
           letterSpacing: '0.2em',
