@@ -166,7 +166,26 @@ export default function Footer() {
           <div className="bottom">
             <p>
               © {new Date().getFullYear()}{" "}
-              <span className="footer-accent">DreamLand Hotel</span>. All rights reserved.
+              <span className="footer-accent">DreamLand Hotel</span>. All rights reserved. <a
+  href="https://t.me/nathan2127g"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="footer-accent"
+  style={{
+    textDecoration: 'none',
+    transition: 'all 0.2s ease',
+  }}
+  onMouseOver={(e) => {
+    e.currentTarget.style.textDecoration = 'underline';
+    e.currentTarget.style.opacity = '0.9';
+  }}
+  onMouseOut={(e) => {
+    e.currentTarget.style.textDecoration = 'none';
+    e.currentTarget.style.opacity = '1';
+  }}
+>
+  Nathnael Getachew
+</a>
             </p>
 
             <div style={{ display: "flex", gap: "1.5rem" }}>
