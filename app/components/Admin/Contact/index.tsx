@@ -107,8 +107,6 @@ export default function AdminPage() {
   max-width: 1000px;
   margin: 0 auto;
 
-  background-color:white;
-
   /* Firefox */
   scrollbar-width: none;
 
