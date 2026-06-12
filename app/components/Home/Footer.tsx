@@ -1,229 +1,182 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import Footer from "@/app/components/Home/Footer";
-import { useEffect, useState } from "react";
-import { useUserLocation } from "@/app/hooks/useCurrentLocation";
-import { getRoute } from "@/app/lib/getRoute";
+import { Wifi, MapPin, Phone, Mail } from "lucide-react";
 
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  GeoJSON,
-} from "react-leaflet";
-
-import "leaflet/dist/leaflet.css";
-
-
-/* ---------------- TYPES ---------------- */
-type RouteInfo = {
-  distance: number;
-  durationCar: number;
-  durationWalk: number;
-};
-
-const DESTINATION: [number, number] = [
-  8.749266809256277,
-  38.970718331002935,
-];
-
-/* ---------------- COMPONENT ---------------- */
-export default function Map() {
-  const router = useRouter();
-  const userLocation = useUserLocation();
-  const [routeGeoJson, setRouteGeoJson] = useState<any>(null);
-  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
-
-  /* ---------------- FETCH ROUTE ---------------- */
-  useEffect(() => {
-    if (!userLocation) return;
-
-    const loadRoute = async () => {
-      try {
-        const data = await getRoute(userLocation, DESTINATION);
-
-        setRouteGeoJson(data);
-
-        // ORS / GeoJSON safe parsing
-        const feature = data?.features?.[0];
-        const props = feature?.properties || {};
-
-        const distanceKm = (props.summary?.distance || 0) / 1000;
-        const durationSec = props.summary?.duration || 0;
-
-        setRouteInfo({
-          distance: Number(distanceKm.toFixed(2)),
-          durationCar: Math.round(durationSec / 60),
-          durationWalk: Math.round((distanceKm / 5) * 60),
-        });
-      } catch (err) {
-        console.error("Route error:", err);
-      }
-    };
-
-    loadRoute();
-  }, [userLocation]);
-
-
-  
-/* ---------------- FIX LEAFLET ICON (SAFE) ---------------- */
-useEffect(() => {
-  import("leaflet").then((L) => {
-    delete (L.default.Icon.Default.prototype as any)._getIconUrl;
-
-    L.default.Icon.Default.mergeOptions({
-      iconRetinaUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-      iconUrl:
-        "/logo.png",
-      shadowUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-    });
-  });
-}, []);
-
-
-
+export default function Footer() {
   return (
     <>
-      {/* PAGE WRAPPER */}
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-
-        {/* NAVBAR */}
-        <nav className="nav">
-          <div className="nav-inner">
-            <div className="logo">DreamLand</div>
-
-            <div>
-              <button className="btn" onClick={() => router.push("/")}>
-                Home
-              </button>
-              <button className="btn btn-primary" onClick={() => router.push("/contact")}>
-                Contact
-              </button>
-            </div>
-          </div>
-        </nav>
-
-        <div style={{ height: "60px" }} />
-
-        {/* MAP */}
-        <div style={{ flex: 1, position: "relative" }}>
-          <MapContainer
-            center={DESTINATION}
-            zoom={14}
-            style={{ height: "70vh", width: "100%" }}
-            scrollWheelZoom={false}
-            dragging={true}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; OpenStreetMap contributors"
-            />
-
-            {/* USER */}
-            {userLocation && (
-              <Marker position={userLocation}>
-                <Popup>Start (You)</Popup>
-              </Marker>
-            )}
-
-            {/* DESTINATION */}
-            <Marker position={DESTINATION}>
-              <Popup>Destination</Popup>
-            </Marker>
-
-            {/* ROUTE */}
-            {routeGeoJson && (
-              <GeoJSON
-                data={routeGeoJson}
-                style={{
-                  color: "#a8895f",
-                  weight: 6,
-                  opacity: 0.9,
-                }}
-              />
-            )}
-          </MapContainer>
-
-          {/* INFO PANEL */}
-          {routeInfo && (
-            <div className="info-box">
-              <h3>Route Info</h3>
-              <p>Distance: {routeInfo.distance} km</p>
-              <p>Car: {routeInfo.durationCar} min</p>
-              <p>Walk: {routeInfo.durationWalk} min</p>
-            </div>
-          )}
-        </div>
-
-        {/* FOOTER */}
-        <Footer />
-      </div>
-
-      {/* STYLES */}
-      <style jsx global>{`
+      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap');
-        
-             
-        
-        body{
-         margin:0;
-       }
-        .nav {
-          position: fixed;
-          top: 0;
-          width: 100%;
-          background: rgba(255,255,255,0.9);
-          z-index: 2000;
-          backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(180,140,80,0.15);
+
+        .footer {
+          background: #ffffff;
+          color: #1a1814;
+          padding: 5rem 1.5rem 2rem;
+          font-family: 'DM Sans', sans-serif;
+          border-top: 1px solid rgba(180,140,80,0.15);
         }
 
-        .nav-inner {
+        .footer-inner {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 2.5rem;
+        }
+
+        @media (min-width: 768px) {
+          .footer-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+
+        .brand-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 1.8rem;
+          font-weight: 300;
+        }
+
+        .brand-desc {
+          color: #7a7066;
+          margin-top: 1rem;
+          line-height: 1.7;
+        }
+
+        .section-title {
+          font-size: 0.85rem;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #a8895f;
+          margin-bottom: 1rem;
+        }
+
+        .link {
+          color: #7a7066;
+          font-size: 0.95rem;
+          margin-bottom: 0.6rem;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .link:hover {
+          color: #b1813f;
+          transform: translateX(3px);
+        }
+
+        .contact-item {
           display: flex;
-          justify-content: space-between;
-          padding: 1rem 2rem;
-          color: #1a1814;
+          align-items: center;
+          gap: 0.6rem;
+          color: #7a7066;
+          margin-bottom: 0.8rem;
+          font-size: 0.95rem;
         }
 
-        .logo {
-          color: #1a1814;
-          letter-spacing: 0.3em;
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 1.5rem;
+        .bottom {
+          margin-top: 4rem;
+          border-top: 1px solid rgba(180,140,80,0.18);
+          padding-top: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          text-align: center;
+          color: #7a7066;
+          font-size: 0.85rem;
         }
 
-        .btn {
-          margin-left: 10px;
-          padding: 8px 16px;
-          border-radius: 999px;
-          border: 1px solid #a8895f;
-          background: transparent;
-          color: #1a1814;
+        @media (min-width: 768px) {
+          .bottom {
+            flex-direction: row;
+            justify-content: space-between;
+            text-align: left;
+          }
         }
 
-        .btn-primary {
-          background: #a8895f;
-          color: white;
-        }
-
-        .info-box {
-          font-family: 'Cormorant Garamond', serif;
-          position: absolute;
-          top: 20px;
-          left: 20px;
-          background: rgba(255,255,255,0.95);
-          color: #1a1814;
-          padding: 16px;
-          border-radius: 12px;
-          z-index: 1000;
-          border: 1px solid rgba(180,140,80,0.15);
-          box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        .footer-accent {
+          color: #a8895f;
         }
       `}</style>
+
+      <footer className="footer">
+        <div className="footer-inner">
+
+          {/* GRID */}
+          <div className="footer-grid">
+
+            {/* Brand */}
+            <div>
+              <h2 className="brand-title">
+                DreamLand <span className="footer-accent">Hotel</span>
+              </h2>
+              <p className="brand-desc">
+                Comfortable stays with modern services, peaceful environment,
+                and affordable luxury in Bishoftu, Ethiopia.
+              </p>
+            </div>
+
+            {/* Links */}
+            <div>
+              <div className="section-title">Quick Links</div>
+              <div className="link">Home</div>
+              <div className="link">Rooms</div>
+              <div className="link">Services</div>
+              <div className="link">Blog</div>
+            </div>
+
+            {/* Services */}
+            <div>
+              <div className="section-title">Services</div>
+
+              <div className="contact-item">
+                <Wifi size={16} />
+                Free WiFi
+              </div>
+
+              <div className="contact-item">Restaurant</div>
+              <div className="contact-item">Transport</div>
+              <div className="contact-item">Room Cleaning</div>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <div className="section-title">Contact</div>
+
+              <div className="contact-item">
+                <MapPin size={16} />
+                Bishoftu, Ethiopia
+              </div>
+
+              <div className="contact-item">
+                <Phone size={16} />
+                +251 900 000 000
+              </div>
+
+              <div className="contact-item">
+                <Mail size={16} />
+                info@rosmeryhotel.com
+              </div>
+            </div>
+
+          </div>
+
+          {/* BOTTOM */}
+          <div className="bottom">
+            <p>
+              © {new Date().getFullYear()}{" "}
+              <span className="footer-accent">DreamLand Hotel</span>. All rights reserved.
+            </p>
+
+            <div style={{ display: "flex", gap: "1.5rem" }}>
+              <span className="link">Privacy Policy</span>
+              <span className="link">Terms</span>
+            </div>
+          </div>
+
+        </div>
+      </footer>
     </>
   );
 }
