@@ -1,0 +1,710 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  ZoomControl,
+  useMap,
+} from 'react-leaflet';
+
+import L from 'leaflet';
+import 'leaflet-routing-machine';
+import 'leaflet/dist/leaflet.css';
+
+import { createControlComponent } from '@react-leaflet/core';
+import { useRouter } from 'next/navigation';
+import Fotter from "@/app/components/Home/Footer"
+
+type RouteInfoType = {
+  driveKm: string;
+  driveMin: number;
+  walkKm: string;
+  walkMin: number;
+};
+
+const RoutingMachine = createControlComponent(
+  ({
+    userLocation,
+    destination,
+    setRouteInfo,
+  }: any) => {
+    const instance = L.Routing.control({
+      waypoints: [
+        L.latLng(userLocation),
+        L.latLng(destination),
+      ],
+
+      router: L.Routing.osrmv1({
+        serviceUrl:
+          'https://router.project-osrm.org/route/v1',
+        profile: 'driving',
+      }),
+
+      lineOptions: {
+        styles: [
+          {
+            color: '#c8a96e',
+            weight: 7,
+            opacity: 0.95,
+          },
+        ],
+      },
+
+      fitSelectedRoutes: true,
+      show: false,
+      addWaypoints: false,
+      draggableWaypoints: false,
+      routeWhileDragging: false,
+      showAlternatives: false,
+      createMarker: () => null,
+    });
+
+    instance.on('routesfound', async (e: any) => {
+      const route = e.routes[0];
+      const summary = route.summary;
+
+      const driveKm = (
+        summary.totalDistance / 1000
+      ).toFixed(2);
+
+      const driveMin = Math.round(
+        summary.totalTime / 60
+      );
+
+      /* ---------- WALK TIME ---------- */
+      try {
+        const walkUrl = `https://router.project-osrm.org/route/v1/foot/${userLocation[1]},${userLocation[0]};${destination[1]},${destination[0]}?overview=false`;
+
+        const res = await fetch(walkUrl);
+        const data = await res.json();
+
+        const walkRoute = data.routes[0];
+
+        const walkKm = (
+          walkRoute.distance / 1000
+        ).toFixed(2);
+
+        const walkMin = Math.round(
+          walkRoute.duration / 60
+        );
+
+        setRouteInfo({
+          driveKm,
+          driveMin,
+          walkKm,
+          walkMin,
+        });
+      } catch {
+        setRouteInfo({
+          driveKm,
+          driveMin,
+          walkKm: driveKm,
+          walkMin: Math.round(
+            (Number(driveKm) / 5) * 60
+          ),
+        });
+      }
+    });
+
+    return instance;
+  }
+);
+
+/* ---------------- AUTO CENTER ---------------- */
+
+function RecenterMap({
+  userLocation,
+}: {
+  userLocation: [number, number] | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (userLocation) {
+      map.flyTo(userLocation, 15, {
+        duration: 2,
+      });
+    }
+  }, [userLocation, map]);
+
+  return null;
+}
+
+export default function DynamicMapContent({
+  destination,
+}: {
+  destination: [number, number];
+}) {
+  const router = useRouter();
+
+  const [userLocation, setUserLocation] =
+    useState<[number, number] | null>(null);
+
+  const [routeInfo, setRouteInfo] =
+    useState<RouteInfoType | null>(null);
+
+  const userMarkerRef = useRef<any>(null);
+  const destinationMarkerRef = useRef<any>(null);
+
+  /* ---------------- ICON FIX ---------------- */
+
+  useEffect(() => {
+    delete (L.Icon.Default.prototype as any)
+      ._getIconUrl;
+
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl:
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+
+      iconUrl:
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+
+      shadowUrl:
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
+  }, []);
+
+  /* ---------------- USER LOCATION ---------------- */
+
+  useEffect(() => {
+    const watchId =
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation([
+            pos.coords.latitude,
+            pos.coords.longitude,
+          ]);
+        },
+
+        (err) => {
+          console.error(err);
+        },
+
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 10000,
+        }
+      );
+
+    return () =>
+      navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  /* ---------------- AUTO OPEN POPUP ---------------- */
+
+  useEffect(() => {
+    if (userMarkerRef.current) {
+      userMarkerRef.current.openPopup();
+    }
+
+    if (destinationMarkerRef.current) {
+      destinationMarkerRef.current.openPopup();
+    }
+  }, [userLocation]);
+
+  return (
+    <>
+    <div className="map-page">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
+        :root {
+          --gold: #c8a96e;
+          --gold-light: #e4c48b;
+          --ink: #0f0e0c;
+          --ink-2: #1b1a18;
+          --text: #f0e8da;
+          --muted: #9c8d7a;
+          --border: rgba(200,169,110,0.16);
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          background: var(--ink);
+          font-family: 'DM Sans', sans-serif;
+        }
+
+        .map-page {
+          width: 100%;
+          height: 100vh;
+          background: var(--ink);
+          position: relative;
+        }
+
+        /* NAVBAR */
+
+        .nav {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          z-index: 2000;
+
+          background: rgba(15,14,12,0.72);
+          backdrop-filter: blur(20px);
+
+          border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner {
+          max-width: 1400px;
+          margin: 0 auto;
+
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          padding: 1.2rem 2rem;
+        }
+
+        .logo {
+          color: var(--text);
+
+          font-size: 1.3rem;
+          letter-spacing: 0.35em;
+          text-transform: uppercase;
+
+          font-family:
+            'Cormorant Garamond',
+            serif;
+        }
+
+        .nav-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .btn {
+          padding: 0.8rem 1.4rem;
+
+          border-radius: 999px;
+
+          background: transparent;
+
+          border: 1px solid var(--border);
+
+          color: var(--text);
+
+          cursor: pointer;
+
+          transition: 0.35s ease;
+
+          font-size: 0.78rem;
+
+          letter-spacing: 0.15em;
+
+          text-transform: uppercase;
+        }
+
+        .btn:hover {
+          border-color: var(--gold);
+          color: var(--gold);
+          transform: translateY(-1px);
+        }
+
+        .btn-primary {
+          background: var(--gold);
+          color: var(--ink);
+          border: none;
+        }
+
+        .btn-primary:hover {
+          background: var(--gold-light);
+          color: var(--ink);
+        }
+
+        /* MAP */
+
+        .map-wrapper {
+          position: absolute;
+
+          inset: 0;
+        }
+
+        .leaflet-container {
+          width: 100%;
+          height: 100%;
+
+          background: #111;
+        }
+
+        /* REMOVE WEIRD WHITE BACKGROUND */
+
+        .leaflet-control-container .leaflet-routing-container-hide {
+          display: none;
+        }
+
+        /* ZOOM CONTROL */
+
+        .leaflet-control-zoom {
+          margin-top: 100px !important;
+          margin-right: 20px !important;
+
+          border: none !important;
+        }
+
+        .leaflet-control-zoom a {
+          background: rgba(15,14,12,0.8) !important;
+          color: var(--gold) !important;
+
+          border: 1px solid var(--border) !important;
+
+          backdrop-filter: blur(20px);
+
+          width: 42px !important;
+          height: 42px !important;
+
+          line-height: 42px !important;
+
+          font-size: 20px !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+          background: var(--gold) !important;
+          color: var(--ink) !important;
+        }
+
+        /* POPUP */
+
+        .leaflet-popup-content-wrapper {
+          background: rgba(15,14,12,0.95);
+          color: var(--text);
+
+          border: 1px solid var(--border);
+
+          border-radius: 16px;
+
+          backdrop-filter: blur(20px);
+        }
+
+        .leaflet-popup-tip {
+          background: rgba(15,14,12,0.95);
+        }
+
+        .popup-title {
+          font-family:
+            'Cormorant Garamond',
+            serif;
+
+          font-size: 1.3rem;
+
+          color: var(--gold);
+
+          margin-bottom: 0.35rem;
+        }
+
+        .popup-sub {
+          font-size: 0.82rem;
+          color: var(--muted);
+          line-height: 1.6;
+        }
+
+        /* INFO PANEL */
+
+        .route-panel {
+          position: absolute;
+
+          left: 35px;
+          bottom: 35px;
+
+          width: 360px;
+
+          z-index: 2000;
+
+          background: rgba(15,14,12,0.72);
+
+          border: 1px solid var(--border);
+
+          backdrop-filter: blur(24px);
+
+          border-radius: 28px;
+
+          overflow: hidden;
+
+          box-shadow:
+            0 10px 50px rgba(0,0,0,0.4);
+        }
+
+        .route-top {
+          padding: 1.8rem 1.8rem 1.4rem;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .route-label {
+          color: var(--muted);
+
+          text-transform: uppercase;
+
+          letter-spacing: 0.28em;
+
+          font-size: 0.68rem;
+
+          margin-bottom: 0.8rem;
+        }
+
+        .route-title {
+          font-family:
+            'Cormorant Garamond',
+            serif;
+
+          font-size: 2.2rem;
+
+          color: var(--gold);
+
+          line-height: 1;
+        }
+
+        .route-subtitle {
+          margin-top: 0.8rem;
+
+          color: var(--text);
+
+          line-height: 1.7;
+
+          font-size: 0.92rem;
+        }
+
+        .route-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .route-item {
+          padding: 1.5rem;
+          border-right: 1px solid var(--border);
+        }
+
+        .route-item:last-child {
+          border-right: none;
+        }
+
+        .route-item-label {
+          color: var(--muted);
+
+          font-size: 0.7rem;
+
+          letter-spacing: 0.18em;
+
+          text-transform: uppercase;
+
+          margin-bottom: 0.8rem;
+        }
+
+        .route-item-value {
+          color: var(--text);
+
+          font-size: 2rem;
+
+          font-family:
+            'Cormorant Garamond',
+            serif;
+        }
+
+        .route-item-small {
+          margin-top: 0.3rem;
+
+          color: var(--gold-light);
+
+          font-size: 0.85rem;
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 768px) {
+          .route-panel {
+            width: calc(100% - 30px);
+            left: 15px;
+            bottom: 15px;
+          }
+
+          .nav-inner {
+            padding: 1rem;
+          }
+
+          .logo {
+            font-size: 1rem;
+          }
+
+          .btn {
+            padding: 0.7rem 1rem;
+            font-size: 0.7rem;
+          }
+        }
+      `}</style>
+
+      {/* NAV */}
+
+      <nav className="nav">
+        <div className="nav-inner">
+          <div className="logo">
+            Rosmery
+          </div>
+
+          <div className="nav-actions">
+            <button
+              className="btn"
+              onClick={() => router.push('/')}
+            >
+              Home
+            </button>
+
+            <button
+              className="btn btn-primary"
+              onClick={() =>
+                router.push('/contact')
+              }
+            >
+              Contact
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* MAP */}
+
+      <div className="map-wrapper">
+        <MapContainer
+          center={destination}
+          zoom={15}
+          zoomControl={false}
+          scrollWheelZoom={false}
+          doubleClickZoom={true}
+          dragging={true}
+          touchZoom={true}
+          style={{
+            height: '100%',
+            width: '100%',
+          }}
+        >
+          <ZoomControl position="topright" />
+
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <RecenterMap
+            userLocation={userLocation}
+          />
+
+          {/* USER */}
+
+          {userLocation && (
+            <Marker
+              position={userLocation}
+              ref={userMarkerRef}
+            >
+              <Popup>
+                <div>
+                  <div className="popup-title">
+                    Your Location
+                  </div>
+
+                  <div className="popup-sub">
+                    Live GPS position with
+                    real-time route tracking.
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* DESTINATION */}
+
+          <Marker
+            position={destination}
+            ref={destinationMarkerRef}
+          >
+            <Popup>
+              <div>
+                <div className="popup-title">
+                  Destination
+                </div>
+
+                <div className="popup-sub">
+                  Luxury arrival point with
+                  intelligent route guidance.
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+
+          {/* ROUTING */}
+
+          {userLocation && (
+            <RoutingMachine
+              userLocation={userLocation}
+              destination={destination}
+              setRouteInfo={setRouteInfo}
+            />
+          )}
+        </MapContainer>
+      </div>
+
+      {/* ROUTE PANEL */}
+
+      {routeInfo && (
+        <div className="route-panel">
+          <div className="route-top">
+            <div className="route-label">
+              Live Navigation
+            </div>
+
+            <div className="route-title">
+              {routeInfo.driveKm} km
+            </div>
+
+            <div className="route-subtitle">
+              Real-time intelligent route
+              guidance powered by OSRM
+              road data and live GPS
+              tracking.
+            </div>
+          </div>
+
+          <div className="route-grid">
+            <div className="route-item">
+              <div className="route-item-label">
+                By Car
+              </div>
+
+              <div className="route-item-value">
+                {routeInfo.driveMin}
+              </div>
+
+              <div className="route-item-small">
+                minutes estimated
+              </div>
+            </div>
+
+            <div className="route-item">
+              <div className="route-item-label">
+                By Walk
+              </div>
+
+              <div className="route-item-value">
+                {routeInfo.walkMin}
+              </div>
+
+              <div className="route-item-small">
+                minutes estimated
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+ 
+    </div>
+         <Fotter />
+    </>
+  );
+}

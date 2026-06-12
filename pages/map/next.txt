@@ -1,0 +1,213 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import Footer from "@/app/components/Home/Footer";
+import { useEffect, useState } from "react";
+import { useUserLocation } from "@/app/hooks/useCurrentLocation";
+import { getRoute } from "@/app/lib/getRoute";
+
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  GeoJSON,
+} from "react-leaflet";
+
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+/* ---------------- FIX LEAFLET ICON (SAFE) ---------------- */
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    iconUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  });
+}, []);
+
+/* ---------------- TYPES ---------------- */
+type RouteInfo = {
+  distance: number;
+  durationCar: number;
+  durationWalk: number;
+};
+
+const DESTINATION: [number, number] = [
+  8.749266809256277,
+  38.970718331002935,
+];
+
+/* ---------------- COMPONENT ---------------- */
+export default function Map() {
+  const router = useRouter();
+  const userLocation = useUserLocation();
+
+  const [routeGeoJson, setRouteGeoJson] = useState<any>(null);
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+
+  /* ---------------- FETCH ROUTE ---------------- */
+  useEffect(() => {
+    if (!userLocation) return;
+
+    const loadRoute = async () => {
+      try {
+        const data = await getRoute(userLocation, DESTINATION);
+
+        setRouteGeoJson(data);
+
+        // ORS / GeoJSON safe parsing
+        const feature = data?.features?.[0];
+        const props = feature?.properties || {};
+
+        const distanceKm = (props.summary?.distance || 0) / 1000;
+        const durationSec = props.summary?.duration || 0;
+
+        setRouteInfo({
+          distance: Number(distanceKm.toFixed(2)),
+          durationCar: Math.round(durationSec / 60),
+          durationWalk: Math.round((distanceKm / 5) * 60),
+        });
+      } catch (err) {
+        console.error("Route error:", err);
+      }
+    };
+
+    loadRoute();
+  }, [userLocation]);
+
+  return (
+    <>
+      {/* PAGE WRAPPER */}
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+
+        {/* NAVBAR */}
+        <nav className="nav">
+          <div className="nav-inner">
+            <div className="logo">Rosmery</div>
+
+            <div>
+              <button className="btn" onClick={() => router.push("/")}>
+                Home
+              </button>
+              <button className="btn btn-primary" onClick={() => router.push("/contact")}>
+                Contact
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div style={{ height: "80px" }} />
+
+        {/* MAP */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <MapContainer
+            center={DESTINATION}
+            zoom={14}
+            style={{ height: "70vh", width: "100%" }}
+            scrollWheelZoom={false}
+            dragging={true}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+
+            {/* USER */}
+            {userLocation && (
+              <Marker position={userLocation}>
+                <Popup>Start (You)</Popup>
+              </Marker>
+            )}
+
+            {/* DESTINATION */}
+            <Marker position={DESTINATION}>
+              <Popup>Destination</Popup>
+            </Marker>
+
+            {/* ROUTE */}
+            {routeGeoJson && (
+              <GeoJSON
+                data={routeGeoJson}
+                style={{
+                  color: "#c8a96e",
+                  weight: 6,
+                  opacity: 0.9,
+                }}
+              />
+            )}
+          </MapContainer>
+
+          {/* INFO PANEL */}
+          {routeInfo && (
+            <div className="info-box">
+              <h3>Route Info</h3>
+              <p>Distance: {routeInfo.distance} km</p>
+              <p>Car: {routeInfo.durationCar} min</p>
+              <p>Walk: {routeInfo.durationWalk} min</p>
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <Footer />
+      </div>
+
+      {/* STYLES */}
+      <style jsx>{`
+        .nav {
+          position: fixed;
+          top: 0;
+          width: 100%;
+          background: rgba(15,14,12,0.9);
+          z-index: 2000;
+          backdrop-filter: blur(20px);
+        }
+
+        .nav-inner {
+          display: flex;
+          justify-content: space-between;
+          padding: 1rem 2rem;
+          color: white;
+        }
+
+        .logo {
+          color: #f0e8da;
+          letter-spacing: 0.3em;
+        }
+
+        .btn {
+          margin-left: 10px;
+          padding: 8px 16px;
+          border-radius: 999px;
+          border: 1px solid #c8a96e;
+          background: transparent;
+          color: white;
+        }
+
+        .btn-primary {
+          background: #c8a96e;
+          color: black;
+        }
+
+        .info-box {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          background: rgba(15,14,12,0.9);
+          color: white;
+          padding: 16px;
+          border-radius: 12px;
+          z-index: 1000;
+        }
+      `}</style>
+    </>
+  );
+}
