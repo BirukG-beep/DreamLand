@@ -184,7 +184,7 @@ export default function Footer() {
     e.currentTarget.style.opacity = '1';
   }}
 > Developed By
-  <span className="text-orange-500">Nathnael Getachew</span>
+  <span className="text-orange-500">&nbsp;Nathnael Getachew</span>
 </a>
             </p>
 
